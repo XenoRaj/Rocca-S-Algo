@@ -1,63 +1,84 @@
 #include <iostream>
 #include <string>
 #include <cstdint>
-#include <string.h>
+#include <cstring>
 using namespace std;
 
 __uint128_t S[7]; // state array
-__uint128_t N; // 12 octets to 16 octets(since its always padded to 128 bits before use stored it as 128bit value)
+__uint128_t N;    // 12 octets to 16 octets(since its always padded to 128 bits before use stored it as 128bit value)
 __uint128_t Z0 = 0x428a2f98d728ae227137449123ef65cd;
 __uint128_t Z1 = 0xb5c0fbcfec4d3b2fe9b5dba58189dbbc;
 __uint128_t K[2];
 
-__uint128_t AD[64]; //max length = 2^62 octets = 2^61 * 8 bits
+int Size_N;
+
+__uint128_t AD[64]; // max length = 2^62 octets = 2^61 * 8 bits = 2^57 elements.
 __uint128_t Size_AD;
-__uint128_t M[256]; //max length = 2^125 octets = 2^125 * 8 bits
+__uint128_t M[256]; // max length = 2^125 octets = 2^125 * 8 bits = 2^121 elements.
 __uint128_t Size_M;
-__uint128_t C[256]; 
+__uint128_t C[256];
 __uint128_t T[2];
 
- 
-
-// to pad a hex string to size mod(256)=0
-int PAD(const char *inp, uint8_t *byteArray)
+unsigned char hexCharToValue(char c)
 {
-    int len = strlen(inp);
-    if (len % 2 != 0)
-    {
-        printf("Invalid hex string length!\n");
-        return 0;
-    }
-    int rem = (64 - len % 64) % rem; // using 64 instead of 256 as hex values are used
-    int i = 0;
-    for (; i < len / 2; i++)
-    {
-        // Convert each pair of hex digits into a single byte
-        sscanf(inp + 2 * i, "%2hhx", &byteArray[i]);
-    }
-
-    for (; i < rem / 2; i++)
-    {
-        sscanf("00", "%2hhx", &byteArray[i]);
-    }
-    return len + rem;
+    if (c >= '0' && c <= '9')
+        return c - '0';
+    if (c >= 'a' && c <= 'f')
+        return c - 'a' + 10;
+    if (c >= 'A' && c <= 'F')
+        return c - 'A' + 10;
+    throw std::invalid_argument("Invalid hex character");
 }
 
-void hexStringToByteArray(const char *hexString, uint8_t *byteArray)
+// to pad a hex string to size mod(256)=0
+int PAD(string inp, __uint128_t *Array)
 {
-    size_t len = strlen(hexString);
+    __uint128_t len = inp.length();
+    int rem = (64 - len % 64) % 64; // using 64 instead of 256 as hex values are used
 
-    if (len % 2 != 0)
+    for (int i = 0; i < rem; i++)
     {
-        printf("Invalid hex string length!\n");
-        return;
+        inp = inp + "0";
     }
 
-    for (size_t i = 0; i < len; i++)
+    __uint128_t Array_size = (inp.length()) / 32;
+
+    for (__uint128_t i = 0; i < Array_size; i++)
     {
-        // Convert each pair of hex digits into a single byte
-        sscanf(hexString + 2 * i, "%2hhx", &byteArray[i]);
+        __uint128_t temp = 0;
+        string substring = inp.substr(i * 32, 32);
+        for (int i = 0; i < 32; i++)
+        {
+            unsigned char val = hexCharToValue(substring[i]);
+            temp << 4;
+            temp = temp | val;
+        }
+        Array[i] = temp;
     }
+
+    return Array_size;
+}
+
+__uint128_t PADN(string inp)
+{
+    __uint128_t len = inp.length();
+    int rem = (32 - len % 32) % 32; // using 64 instead of 256 as hex values are used
+
+    for (int i = 0; i < rem; i++)
+    {
+        inp = inp + "0";
+    }
+
+    __uint128_t temp = 0;
+    string substring = inp;
+    for (int i = 0; i < 32; i++)
+    {
+        unsigned char val = hexCharToValue(substring[i]);
+        temp << 4;
+        temp = temp | val;
+    }
+
+    return temp;
 }
 
 void roundFunction(__uint128_t X_0, __uint128_t X_1)
@@ -83,11 +104,11 @@ void roundFunction(__uint128_t X_0, __uint128_t X_1)
 void initialize()
 {
     S[0] = K[1],
-    S[1] = PADN(N),
+    S[1] = N,
     S[2] = Z0,
     S[3] = K[0],
     S[4] = Z1,
-    S[5] = PADN(N) ^ K[1],
+    S[5] = N ^ K[1],
     S[6] = 0;
 
     for (int i = 0; i < 16; i++)
@@ -114,17 +135,19 @@ void proccessAD(__uint128_t *AD)
 
 void Rocca_S_encrypt(__uint128_t *M)
 {
-    for (int i = 0; i < sizeof(M); i=i+2)
+    for (int i = 0; i < sizeof(M); i = i + 2)
     {
         C[i] = AES(S[3] ^ S[5], S[0]) ^ M[i];
-        C[i] = AES(S[4] ^ S[6], S[2]) ^ M[i+1];
+        C[i] = AES(S[4] ^ S[6], S[2]) ^ M[i + 1];
         roundFunction(M[i], M[i + 1]);
     }
 }
 
-__uint128_t LE128(__uint128_t num){
+__uint128_t LE128(__uint128_t num)
+{
     __uint128_t out = 0;
-    for (int i = 0; i < 16; i++){
+    for (int i = 0; i < 16; i++)
+    {
         out = out << 8;
         out = out | (num & 0xFF);
         num = num >> 8;
@@ -132,8 +155,10 @@ __uint128_t LE128(__uint128_t num){
     return out;
 }
 
-void finalize(){
-    for (int i = 0; i < 16; i++){
+void finalize()
+{
+    for (int i = 0; i < 16; i++)
+    {
         roundFunction(LE128(Size_AD), LE128(Size_M));
     }
 
@@ -141,19 +166,24 @@ void finalize(){
     T[1] = (S[4] ^ S[5] ^ S[6]);
 }
 
-
 int main()
 {
+
+    string N_string;
+    string M_string;
+    string AD_string;
+    Size_N = N_string.length();
+
+    N = PADN(N_string);
+
+    Size_AD = PAD(AD_string, AD);
+    Size_M = PAD(M_string, M);
+
     initialize();
 
-    printf("%llx\n", (unsigned long long)S[6]);
-
-    PAD(AD); // need to implement
     proccessAD(AD);
 
-    PAD(M);
     Rocca_S_encrypt(M);
 
     finalize();
-
 }
