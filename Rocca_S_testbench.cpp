@@ -1,14 +1,16 @@
 #include <iostream>
 #include <string>
-#include <cstdint>
+
 #include <cstring>
+
+#include "Rocca_S.h"
 using namespace std;
 
 __uint128_t S[7]; // state array
 __uint128_t N;    // 12 octets to 16 octets(since its always padded to 128 bits before use stored it as 128bit value)
-__uint128_t Z0 = 0x428a2f98d728ae227137449123ef65cd;
-__uint128_t Z1 = 0xb5c0fbcfec4d3b2fe9b5dba58189dbbc;
-__uint128_t K[2];
+__uint128_t Z0 = ((__uint128_t)0x428a2f98d728ae22ULL << 64) | 0x7137449123ef65cdULL;
+__uint128_t Z1 = ((__uint128_t)0xb5c0fbcfec4d3b2fULL << 64) | 0xe9b5dba58189dbbcULL;
+__uint128_t K[2] = {0, 0};
 
 int Size_N;
 
@@ -18,6 +20,51 @@ __uint128_t M[256]; // max length = 2^125 octets = 2^125 * 8 bits = 2^121 elemen
 __uint128_t Size_M;
 __uint128_t C[256];
 __uint128_t T[2];
+
+typedef uint8_t state_t[4][4];
+
+#include <iomanip>
+#include <sstream>
+#include <wmmintrin.h>
+
+// Convert __uint128_t to __m128i
+__m128i uint128_to_m128i(__uint128_t value)
+{
+    // Split the 128-bit value into two 64-bit parts
+    uint64_t high = static_cast<uint64_t>(value >> 64);
+    uint64_t low = static_cast<uint64_t>(value);
+
+    // Combine them into an __m128i using the _mm_set_epi64x intrinsic
+    return _mm_set_epi64x(high, low);
+}
+
+// Convert __m128i back to __uint128_t
+__uint128_t m128i_to_uint128(__m128i value)
+{
+    // Use a temporary array to hold the 128-bit value
+    uint64_t temp[2];
+    _mm_storeu_si128((__m128i *)temp, value); // Store the __m128i into the array
+
+    // Combine the two 64-bit parts into a 128-bit integer
+    return ((__uint128_t)temp[1] << 64) | temp[0]; // temp[1] is the high part, temp[0] is the low part
+}
+
+std::string uint128_to_hex(__uint128_t value)
+{
+    std::ostringstream oss;
+
+    // Split the 128-bit value into two 64-bit parts
+    uint64_t high = static_cast<uint64_t>(value >> 64); // Higher 64 bits
+    uint64_t low = static_cast<uint64_t>(value);        // Lower 64 bits
+
+    // Print the higher part with leading zeros (even if it's zero)
+    oss << std::hex << std::setw(16) << std::setfill('0') << high;
+
+    // Print the lower part, also with leading zeros
+    oss << std::hex << std::setw(16) << std::setfill('0') << low;
+
+    return oss.str();
+}
 
 unsigned char hexCharToValue(char c)
 {
@@ -81,6 +128,130 @@ __uint128_t PADN(string inp)
     return temp;
 }
 
+void SubBytes(state_t *state)
+{
+    uint8_t i, j;
+    for (i = 0; i < 4; ++i)
+    {
+        for (j = 0; j < 4; ++j)
+        {
+            (*state)[j][i] = sboxhw[(*state)[j][i]];
+        }
+    }
+}
+
+void ShiftRows(state_t *state)
+{
+    uint8_t temp;
+
+    // Rotate first row 1 columns to left
+    temp = (*state)[0][1];
+    (*state)[0][1] = (*state)[1][1];
+    (*state)[1][1] = (*state)[2][1];
+    (*state)[2][1] = (*state)[3][1];
+    (*state)[3][1] = temp;
+
+    // Rotate second row 2 columns to left
+    temp = (*state)[0][2];
+    (*state)[0][2] = (*state)[2][2];
+    (*state)[2][2] = temp;
+
+    temp = (*state)[1][2];
+    (*state)[1][2] = (*state)[3][2];
+    (*state)[3][2] = temp;
+
+    // Rotate third row 3 columns to left
+    temp = (*state)[0][3];
+    (*state)[0][3] = (*state)[3][3];
+    (*state)[3][3] = (*state)[2][3];
+    (*state)[2][3] = (*state)[1][3];
+    (*state)[1][3] = temp;
+}
+
+uint8_t xtime(uint8_t x)
+{
+    return ((x << 1) ^ (((x >> 7) & 1) * 0x1b));
+}
+
+void MixColumns(state_t *state)
+{
+    uint8_t i;
+    uint8_t Tmp, Tm, t;
+    for (i = 0; i < 4; ++i)
+    {
+        t = (*state)[i][0];
+        Tmp = (*state)[i][0] ^ (*state)[i][1] ^ (*state)[i][2] ^ (*state)[i][3];
+        Tm = (*state)[i][0] ^ (*state)[i][1];
+        Tm = xtime(Tm);
+        (*state)[i][0] ^= Tm ^ Tmp;
+        Tm = (*state)[i][1] ^ (*state)[i][2];
+        Tm = xtime(Tm);
+        (*state)[i][1] ^= Tm ^ Tmp;
+        Tm = (*state)[i][2] ^ (*state)[i][3];
+        Tm = xtime(Tm);
+        (*state)[i][2] ^= Tm ^ Tmp;
+        Tm = (*state)[i][3] ^ t;
+        Tm = xtime(Tm);
+        (*state)[i][3] ^= Tm ^ Tmp;
+    }
+}
+
+void A(state_t *state)
+{
+    SubBytes(state);
+
+    ShiftRows(state);
+
+    MixColumns(state);
+}
+
+// __uint128_t AES(__uint128_t state, __uint128_t RoundKey)
+// {
+//     // Create a state_t object from the __uint128_t state
+//     state_t newState;
+//     uint64_t *stateParts = reinterpret_cast<uint64_t *>(&newState);
+//     stateParts[0] = static_cast<uint64_t>(state >> 64);
+//     stateParts[1] = static_cast<uint64_t>(state);
+
+//     // Apply the A function
+//     A(&newState);
+
+//     // XOR the state with the RoundKey
+//     uint64_t roundKeyParts[2];
+//     roundKeyParts[0] = static_cast<uint64_t>(RoundKey >> 64);
+//     roundKeyParts[1] = static_cast<uint64_t>(RoundKey);
+
+//     for (int i = 0; i < 4; ++i)
+//     {
+//         for (int j = 0; j < 4; ++j)
+//         {
+//             newState[j][i] ^= (j == 0 ? roundKeyParts[0] : roundKeyParts[1]) >> (8 * (i % 8));
+//         }
+//     }
+
+//     // Convert the state back to __uint128_t
+//     __uint128_t result = ((__uint128_t)newState[0][0] << 96) |
+//                          ((__uint128_t)newState[0][1] << 80) |
+//                          ((__uint128_t)newState[0][2] << 64) |
+//                          ((__uint128_t)newState[0][3] << 48) |
+//                          ((__uint128_t)newState[1][0] << 32) |
+//                          ((__uint128_t)newState[1][1] << 16) |
+//                          ((__uint128_t)newState[1][2]) |
+//                          ((__uint128_t)newState[1][3]);
+
+//     return result;
+// }
+
+__uint128_t AES(__uint128_t state, __uint128_t key)
+{
+    __m128i s = uint128_to_m128i(state);
+    __m128i k = uint128_to_m128i(key);
+    __m128i r = _mm_aesenc_si128(s, k);
+
+    __uint128_t result = m128i_to_uint128(r);
+    return result;
+}
+
 void roundFunction(__uint128_t X_0, __uint128_t X_1)
 {
     __uint128_t Snew[7];
@@ -115,7 +286,6 @@ void initialize()
     {
         roundFunction(Z0, Z1);
     }
-
     S[0] = S[0] ^ K[0];
     S[1] = S[1] ^ K[0];
     S[2] = S[2] ^ K[1];
@@ -169,15 +339,23 @@ void finalize()
 int main()
 {
 
-    string N_string;
-    string M_string;
-    string AD_string;
+    string N_string = "00000000000000000000000000000000";
+    string M_string = "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
+    string AD_string = "0000000000000000000000000000000000000000000000000000000000000000";
     Size_N = N_string.length();
 
     N = PADN(N_string);
 
     Size_AD = PAD(AD_string, AD);
     Size_M = PAD(M_string, M);
+
+    for (int i = 0; i < Size_M; i++)
+    {
+        cout << i << endl;
+        string temp = uint128_to_hex(M[i]);
+        cout << temp;
+    }
+    cout << "\n";
 
     initialize();
 
@@ -186,4 +364,19 @@ int main()
     Rocca_S_encrypt(M);
 
     finalize();
+    cout << "\n\n"
+         << endl;
+    for (int i = 0; i < Size_M; i++)
+    {
+        string temp = uint128_to_hex(C[i]);
+        cout << temp;
+    }
+    cout << "\n";
+    cout << "\n\n"
+         << endl;
+    for (int i = 0; i < 2; i++)
+    {
+        string temp = uint128_to_hex(T[i]);
+        cout << temp;
+    }
 }
