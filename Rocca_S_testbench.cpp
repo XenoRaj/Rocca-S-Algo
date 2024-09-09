@@ -205,52 +205,52 @@ void A(state_t *state)
     MixColumns(state);
 }
 
-// __uint128_t AES(__uint128_t state, __uint128_t RoundKey)
-// {
-//     // Create a state_t object from the __uint128_t state
-//     state_t newState;
-//     uint64_t *stateParts = reinterpret_cast<uint64_t *>(&newState);
-//     stateParts[0] = static_cast<uint64_t>(state >> 64);
-//     stateParts[1] = static_cast<uint64_t>(state);
-
-//     // Apply the A function
-//     A(&newState);
-
-//     // XOR the state with the RoundKey
-//     uint64_t roundKeyParts[2];
-//     roundKeyParts[0] = static_cast<uint64_t>(RoundKey >> 64);
-//     roundKeyParts[1] = static_cast<uint64_t>(RoundKey);
-
-//     for (int i = 0; i < 4; ++i)
-//     {
-//         for (int j = 0; j < 4; ++j)
-//         {
-//             newState[j][i] ^= (j == 0 ? roundKeyParts[0] : roundKeyParts[1]) >> (8 * (i % 8));
-//         }
-//     }
-
-//     // Convert the state back to __uint128_t
-//     __uint128_t result = ((__uint128_t)newState[0][0] << 96) |
-//                          ((__uint128_t)newState[0][1] << 80) |
-//                          ((__uint128_t)newState[0][2] << 64) |
-//                          ((__uint128_t)newState[0][3] << 48) |
-//                          ((__uint128_t)newState[1][0] << 32) |
-//                          ((__uint128_t)newState[1][1] << 16) |
-//                          ((__uint128_t)newState[1][2]) |
-//                          ((__uint128_t)newState[1][3]);
-
-//     return result;
-// }
-
-__uint128_t AES(__uint128_t state, __uint128_t key)
+__uint128_t AES(__uint128_t state, __uint128_t RoundKey)
 {
-    __m128i s = uint128_to_m128i(state);
-    __m128i k = uint128_to_m128i(key);
-    __m128i r = _mm_aesenc_si128(s, k);
+    // Create a state_t object from the __uint128_t state
+    state_t newState;
+    uint64_t *stateParts = reinterpret_cast<uint64_t *>(&newState);
+    stateParts[0] = static_cast<uint64_t>(state >> 64);
+    stateParts[1] = static_cast<uint64_t>(state);
 
-    __uint128_t result = m128i_to_uint128(r);
+    // Apply the A function
+    A(&newState);
+
+    // XOR the state with the RoundKey
+    uint64_t roundKeyParts[2];
+    roundKeyParts[0] = static_cast<uint64_t>(RoundKey >> 64);
+    roundKeyParts[1] = static_cast<uint64_t>(RoundKey);
+
+    for (int i = 0; i < 4; ++i)
+    {
+        for (int j = 0; j < 4; ++j)
+        {
+            newState[j][i] ^= (j == 0 ? roundKeyParts[0] : roundKeyParts[1]) >> (8 * (i % 8));
+        }
+    }
+
+    // Convert the state back to __uint128_t
+    __uint128_t result = ((__uint128_t)newState[0][0] << 96) |
+                         ((__uint128_t)newState[0][1] << 80) |
+                         ((__uint128_t)newState[0][2] << 64) |
+                         ((__uint128_t)newState[0][3] << 48) |
+                         ((__uint128_t)newState[1][0] << 32) |
+                         ((__uint128_t)newState[1][1] << 16) |
+                         ((__uint128_t)newState[1][2]) |
+                         ((__uint128_t)newState[1][3]);
+
     return result;
 }
+
+// __uint128_t AES(__uint128_t state, __uint128_t key)
+// {
+//     __m128i s = uint128_to_m128i(state);
+//     __m128i k = uint128_to_m128i(key);
+//     __m128i r = _mm_aesenc_si128(s, k);
+
+//     __uint128_t result = m128i_to_uint128(r);
+//     return result;
+// }
 
 void roundFunction(__uint128_t X_0, __uint128_t X_1)
 {
@@ -339,9 +339,9 @@ void finalize()
 int main()
 {
 
-    string N_string = "00000000000000000000000000000000";
-    string M_string = "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
-    string AD_string = "0000000000000000000000000000000000000000000000000000000000000000";
+    string N_string = "0000000000000000000000000000000";
+    string M_string = "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
+    string AD_string = "000000000000000000000000000000000000000000000000000000000000000";
     Size_N = N_string.length();
 
     N = PADN(N_string);
@@ -364,8 +364,11 @@ int main()
     Rocca_S_encrypt(M);
 
     finalize();
-    cout << "\n\n"
-         << endl;
+    cout << "\n\n";
+    
+    cout << uint128_to_hex(Size_M) << endl;
+
+    cout << "Cipher text: ";
     for (int i = 0; i < Size_M; i++)
     {
         string temp = uint128_to_hex(C[i]);
