@@ -1,6 +1,5 @@
 #include <iostream>
 #include <string>
-#include <immintrin.h>
 #include <cstring>
 
 #include "Rocca_S.h"
@@ -60,7 +59,6 @@ typedef uint8_t state_t[4][4];
 
 #include <iomanip>
 #include <sstream>
-#include <wmmintrin.h>
 
 // Convert __uint128_t to __m128i
 
@@ -92,46 +90,6 @@ unsigned char hexCharToValue(char c)
     throw std::invalid_argument("Invalid hex character");
 }
 
-// to pad a hex string to size mod(256)=0
-// int PAD(string inp, __uint128_t *Array)
-// {
-//     __uint128_t len = inp.length();
-//     int rem = (64 - len % 64) % 64; // using 64 instead of 256 as hex values are used
-
-//     for (int i = 0; i < rem; i++)
-//     {
-//         inp = inp + "0";
-//     }
-
-//     __uint128_t Array_size = (inp.length()) / 32;
-
-//     for (__uint128_t i = 0; i < Array_size-1; i=i+2)
-//     {
-//         __uint128_t temp = 0;
-//         string substring = inp.substr(i * 32, 32);
-//         for (int j = 31; j >=1; j=j-2)
-//         {
-//             unsigned char val = hexCharToValue(substring[j-1]);
-//             temp = (temp << 4) | val;
-//             val = hexCharToValue(substring[j]);
-//             temp = (temp << 4) | val;
-//         }
-//         Array[i+1] = temp;
-//         substring = inp.substr(i * 32+32, 32);
-//         temp = 0;
-//         for (int j = 31; j >=1; j=j-2)
-//         {
-//             unsigned char val = hexCharToValue(substring[j-1]);
-//             temp = (temp << 4) | val;
-//             val = hexCharToValue(substring[j]);
-//             temp = (temp << 4) | val;
-//         }
-//         Array[i] = temp;
-//     }
-
-//     return Array_size;
-// }
-
 int PAD(string inp, __uint128_t *Array)
 {
     __uint128_t len = inp.length();
@@ -159,33 +117,10 @@ int PAD(string inp, __uint128_t *Array)
     return Array_size;
 }
 
-// __uint128_t PADN(string inp)
-// {
-//     __uint128_t len = inp.length();
-//     int rem = (32 - len % 32) % 32; // using 64 instead of 256 as hex values are used
-
-//     for (int i = 0; i < rem; i++)
-//     {
-//         inp = inp + "0";
-//     }
-
-//     __uint128_t temp = 0;
-//     string substring = inp;
-//     for (int i = 31; i >=1; i=i-2)
-//     {
-//         unsigned char val = hexCharToValue(substring[i-1]);
-//         temp = (temp << 4) | val;
-//         val = hexCharToValue(substring[i]);
-//         temp = (temp << 4) | val;
-//     }
-
-//     return temp;
-// }
-
 __uint128_t PADN(string inp)
 {
     __uint128_t len = inp.length();
-    int rem = (32 - len % 32) % 32; // using 64 instead of 256 as hex values are used
+    int rem = (32 - len % 32) % 32; 
 
     for (int i = 0; i < rem; i++)
     {
@@ -197,6 +132,7 @@ __uint128_t PADN(string inp)
     for (int i = 0; i < 32; i++)
     {
         unsigned char val = hexCharToValue(substring[i]);
+        
         temp = (temp << 4) | val;
     }
 
@@ -230,18 +166,18 @@ void shiftRow(unsigned char *state, unsigned char nbr)
 void shiftRows(unsigned char *state)
 {
     int i, j;
-    unsigned char column[4];
+    unsigned char row[4];
     /* iterate over the 4 rows and call shiftRow() with that row */
     for (i = 0; i < 4; i++)
     {
         for (j = 0; j < 4; j++)
         {
-            column[j] = state[(j * 4) + i];
+            row[j] = state[(j * 4) + i];
         }
-        shiftRow(column, i);
+        shiftRow(row, i);
         for (j = 0; j < 4; j++)
         {
-            state[(j * 4) + i] = column[j];
+            state[(j * 4) + i] = row[j];
         }
     }
 }
@@ -333,30 +269,10 @@ void uint128_to_charArray(__uint128_t value, uint8_t *array) // working
     }
 }
 
-void uint128_to_charArray_mine(__uint128_t value, uint8_t *array)
-{
-    for (int i = 0; i < 16; i++)
-    {
-        array[i] = (uint8_t)(value & 0xFF);
-        value >>= 8;
-    }
-}
-
 __uint128_t charArray_to_uint128(uint8_t *array) // working
 {
     __uint128_t result = 0;
     for (int i = 0; i < 16; i++)
-    {
-        result = (result << 8) | array[i];
-    }
-
-    return result;
-}
-
-__uint128_t charArray_to_uint128_mine(uint8_t *array) // working
-{
-    __uint128_t result = 0;
-    for (int i = 15; i >= 0; i--)
     {
         result = (result << 8) | array[i];
     }
@@ -393,39 +309,6 @@ void aes_round(unsigned char *state, unsigned char *roundKey)
     // cout << "after add round key: " << ans << "\n\n";
 }
 
-__m128i char16_to_m128i(unsigned char input[16])
-{
-    // Load the 16 bytes (128 bits) from the input array into an __m128i value
-    return _mm_loadu_si128((const __m128i *)input);
-}
-
-void m128i_to_char16(__m128i input, unsigned char output[16])
-{
-    // Store the 128-bit __m128i value into the output array
-    _mm_storeu_si128((__m128i *)output, input);
-}
-#define load(m) _mm_loadu_si128((const __m128i *)(m))
-#define store(m, a) _mm_storeu_si128((__m128i *)(m), a)
-
-__uint128_t AESimp(__uint128_t state, __uint128_t key)
-{
-    uint8_t newState[16];
-    uint8_t roundKey[16];
-
-    uint128_to_charArray(state, newState);
-    uint128_to_charArray(key, roundKey);
-
-    // aes_round(newState, roundKey);
-    __m128i ans = _mm_aesenc_si128(load(&newState), load(&roundKey));
-    store(&newState, ans);
-    __uint128_t result = charArray_to_uint128(newState);
-    // string before = uint128_to_hex(state);
-    // cout << "state: ";
-
-    // cout << before << endl;
-    return result;
-}
-
 __uint128_t AES(__uint128_t state, __uint128_t key)
 {
     uint8_t newState[16];
@@ -435,13 +318,9 @@ __uint128_t AES(__uint128_t state, __uint128_t key)
     uint128_to_charArray(key, roundKey);
 
     aes_round(newState, roundKey);
-    // __m128i ans = _mm_aesenc_si128(load(&newState), load(&roundKey));
-    // store(&newState,ans);
+    
     __uint128_t result = charArray_to_uint128(newState);
-    // string before = uint128_to_hex(state);
-    // cout << "state: ";
 
-    // cout << before << endl;
     return result;
 }
 void roundFunction(__uint128_t X_0, __uint128_t X_1)
@@ -455,12 +334,6 @@ void roundFunction(__uint128_t X_0, __uint128_t X_1)
     Snew[5] = AES(S[4], S[3]);
     Snew[6] = AES(S[5], S[4]);
 
-    cout << "before update round: \n";
-    for (int i = 0; i < 7; i++)
-    {
-        cout << uint128_to_hex(S[i]) << endl;
-    }
-    cout << endl;
     S[0] = Snew[0];
     S[1] = Snew[1];
     S[2] = Snew[2];
@@ -468,13 +341,6 @@ void roundFunction(__uint128_t X_0, __uint128_t X_1)
     S[4] = Snew[4];
     S[5] = Snew[5];
     S[6] = Snew[6];
-
-    cout << "after update round: \n";
-    for (int i = 0; i < 7; i++)
-    {
-        cout << uint128_to_hex(S[i]) << endl;
-    }
-    cout << endl;
 }
 
 void initialize()
@@ -486,21 +352,11 @@ void initialize()
     S[4] = Z1;
     S[5] = N ^ K[1];
     S[6] = 0x000000000000000000000000;
-
-    cout << "after first init: \n";
-    for (int i = 0; i < 7; i++)
-    {
-        cout << uint128_to_hex(S[i]) << endl;
-    }
+  
 
     for (int i = 0; i < 16; i++)
     {
         roundFunction(Z0, Z1);
-        cout << "after " << i << " round: \n";
-        for (int i = 0; i < 7; i++)
-        {
-            cout << uint128_to_hex(S[i]) << endl;
-        }
     }
     S[0] = S[0] ^ K[0];
     S[1] = S[1] ^ K[0];
@@ -547,8 +403,6 @@ void finalize()
     {
         roundFunction(LE128(lenAD), LE128(lenM));
     }
-    cout << uint128_to_hex(LE128(lenAD)) << endl;
-    cout << uint128_to_hex(LE128(lenM)) << endl;
 
     T[0] = (((S[0] ^ S[1]) ^ S[2]) ^ S[3]);
     T[1] = ((S[4] ^ S[5]) ^ S[6]);
@@ -556,114 +410,64 @@ void finalize()
 
 int main()
 {
-
-    string N_string = "44444444444444444444444444444444";
-    string M_string = "808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebf";
-    string AD_string = "";
-    Size_N = N_string.length();
-
-    string K_string = "1111111111111111111111111111111122222222222222222222222222222222";
-    lenAD = AD_string.length() * 4;
-    lenM = M_string.length() * 4;
-    int lenMint = M_string.length() * 4;
-
-    int x = PAD(K_string, K);
-    cout << "key size: " << x << endl;
-
-    N = PADN(N_string);
-
-    Size_AD = PAD(AD_string, AD);
-    Size_M = PAD(M_string, M);
-    cout << "\n";
-    for (int i = 0; i < Size_AD; i++)
+    for (int i = 1; i <= 7; i++)
     {
-        cout << i << endl;
-        string temp = uint128_to_hex(AD[i]);
-        cout << temp;
+        string s = "test_vector_" + to_string(i) + "_";
+
+        string K_string = testVectors[s + "key"];
+        string N_string = testVectors[s + "nonce"];
+        string M_string = testVectors[s + "plaintext"];
+        string AD_string = testVectors[s + "associated_data"];
+        string C_string = testVectors[s + "ciphertext"];
+        string T_string = testVectors[s + "tag"];
+        
+
+        lenAD = AD_string.length() * 4;
+        lenM = M_string.length() * 4;
+       
+
+        PAD(K_string, K);
+     
+
+        N = PADN(N_string);
+      
+
+        Size_AD = PAD(AD_string, AD);
+        Size_M = PAD(M_string, M);
+        
+
+        initialize();
+
+        proccessAD(AD);
+
+        Rocca_S_encrypt(M);
+
+        finalize();
+
+        string cipher_output = "";
+        string tag_output = "";
+        for (int i = 0; i < Size_M; i++)
+        {
+            cipher_output += uint128_to_hex(C[i]);
+        }
+
+        for (int i = 0; i < 2; i++)
+        {
+            tag_output += uint128_to_hex(T[i]);
+        }
+
+        if (cipher_output.substr(0, lenM/4) != C_string)
+        {
+            cout << "ERROR: Cipher text doesn't match in test_vector " << i << endl;
+            return 1;
+        }
+        if (tag_output != T_string)
+        {
+            cout << "ERROR: Tag doesn't match in test_vector " << i << endl;
+            return 1;
+        }
     }
-    cout << "\n";
-    for (int i = 0; i < Size_M; i++)
-    {
-        cout << i << endl;
-        string temp = uint128_to_hex(M[i]);
-        cout << temp;
-    }
-    cout << "\n";
-
-    initialize();
-    cout << "after initialization: \n";
-    for (int i = 0; i < 7; i++)
-    {
-        cout << uint128_to_hex(S[i]) << endl;
-    }
-
-    proccessAD(AD);
-    cout << "after processAD: \n";
-    for (int i = 0; i < 7; i++)
-    {
-        cout << uint128_to_hex(S[i]) << endl;
-    }
-
-    Rocca_S_encrypt(M);
-    cout << "after encrypt: \n";
-    for (int i = 0; i < 7; i++)
-    {
-        cout << uint128_to_hex(S[i]) << endl;
-    }
-
-    cout << "finalize: \n";
-    finalize();
-    cout << "\n\n";
-    cout << "after tag: \n";
-    for (int i = 0; i < 7; i++)
-    {
-        cout << uint128_to_hex(S[i]) << endl;
-    }
-    cout << "Cipher text: \n";
-    for (int i = 0; i < Size_M; i++)
-    {
-        string temp = uint128_to_hex(C[i]);
-        cout << temp << " ";
-    }
-    cout << "\n";
-    cout << "\n\nTAG: "
-         << endl;
-
-    for (int i = 0; i < 2; i++)
-    {
-        string temp = uint128_to_hex(T[i]);
-        cout << temp << " ";
-    }
-    cout << "\n\n";
-    cout << uint128_to_hex(Size_AD) << endl;
-    cout << uint128_to_hex(Size_M) << endl;
-
-    const __uint128_t s = ((__uint128_t)0x193de3bea0f4e22bULL << 64) | 0x9ac68d2ae9f84808ULL;
-    const __uint128_t s_le = ((__uint128_t)0x0848f8e92a8dc69aULL << 64) | 0x2be2f4a0bee33d19ULL;
-
-    const __uint128_t k = ((__uint128_t)0xa0fafe1788542cb1ULL << 64) | 0x23a339392a6c7605ULL;
-    const __uint128_t k_le = ((__uint128_t)0x05766c2a3939a323ULL << 64) | 0xb12c548817fef8a0ULL;
-
-    __uint128_t l = AESimp(s, k);
-    __uint128_t r = AES(s, k);
-
-    string res = uint128_to_hex(l);
-    cout << "\n\n";
-    cout << "res: ";
-    cout << res << endl;
-    res = uint128_to_hex(r);
-    cout << "\n\n";
-    cout << "res(mine): ";
-    cout << res << endl;
-    cout << uint128_to_hex(lenM) << endl;
-    cout << lenMint << endl;
-    // string nounce = uint128_to_hex(N);
-    // cout << "\n\n";
-    // // cout << "nounce: ";
-    // // cout << nounce;
-    // __uint128_t s2 = __uint128_t(0x428a2f98d728ae22 << 64) | (0x7137449123ef65cd);
-    // __uint128_t s6 = __uint128_t(0xd6a398ac8f2e584c << 64) | (0x8ad6b8c6e2eab8df);
-    // __uint128_t res = AES(s2, s6);
-    // cout << "\n\n"
-    //  << uint128_to_hex(res) << endl;
+    cout << "****************************************\n\n";
+    cout << "All tests passed sucessfully\n\n";
+    cout << "****************************************";
 }
