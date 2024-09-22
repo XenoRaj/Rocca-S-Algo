@@ -1,59 +1,4 @@
-#include <iostream>
-#include <string>
-#include <iomanip>
-#include <sstream>
-#include "Rocca_S.h"
-using namespace std;
-
-static const __uint128_t Z0 = ((__uint128_t)0xcdULL << 120) | ((__uint128_t)0x65ULL << 112) |
-                              ((__uint128_t)0xefULL << 104) | ((__uint128_t)0x23ULL << 96) |
-                              ((__uint128_t)0x91ULL << 88) | ((__uint128_t)0x44ULL << 80) |
-                              ((__uint128_t)0x37ULL << 72) | ((__uint128_t)0x71ULL << 64) |
-                              ((__uint128_t)0x22ULL << 56) | ((__uint128_t)0xaeULL << 48) |
-                              ((__uint128_t)0x28ULL << 40) | ((__uint128_t)0xd7ULL << 32) |
-                              ((__uint128_t)0x98ULL << 24) | ((__uint128_t)0x2fULL << 16) |
-                              ((__uint128_t)0x8aULL << 8) | 0x42ULL;
-
-static const __uint128_t Z1 = ((__uint128_t)0xbcULL << 120) | ((__uint128_t)0xdbULL << 112) |
-                              ((__uint128_t)0x89ULL << 104) | ((__uint128_t)0x81ULL << 96) |
-                              ((__uint128_t)0xa5ULL << 88) | ((__uint128_t)0xdbULL << 80) |
-                              ((__uint128_t)0xb5ULL << 72) | ((__uint128_t)0xe9ULL << 64) |
-                              ((__uint128_t)0x2fULL << 56) | ((__uint128_t)0x3bULL << 48) |
-                              ((__uint128_t)0x4dULL << 40) | ((__uint128_t)0xecULL << 32) |
-                              ((__uint128_t)0xcfULL << 24) | ((__uint128_t)0xfbULL << 16) |
-                              ((__uint128_t)0xc0ULL << 8) | 0xb5ULL;
-
-static const __uint128_t Z0LE = ((__uint128_t)0x42ULL << 120) | ((__uint128_t)0x8aULL << 112) |
-                                ((__uint128_t)0x2fULL << 104) | ((__uint128_t)0x98ULL << 96) |
-                                ((__uint128_t)0xd7ULL << 88) | ((__uint128_t)0x28ULL << 80) |
-                                ((__uint128_t)0xaeULL << 72) | ((__uint128_t)0x22ULL << 64) |
-                                ((__uint128_t)0x71ULL << 56) | ((__uint128_t)0x37ULL << 48) |
-                                ((__uint128_t)0x44ULL << 40) | ((__uint128_t)0x91ULL << 32) |
-                                ((__uint128_t)0x23ULL << 24) | ((__uint128_t)0xefULL << 16) |
-                                ((__uint128_t)0x65ULL << 8) | 0xcdULL;
-
-static const __uint128_t Z1LE = ((__uint128_t)0xb5ULL << 120) | ((__uint128_t)0xc0ULL << 112) |
-                                ((__uint128_t)0xfbULL << 104) | ((__uint128_t)0xcfULL << 96) |
-                                ((__uint128_t)0xecULL << 88) | ((__uint128_t)0x4dULL << 80) |
-                                ((__uint128_t)0x3bULL << 72) | ((__uint128_t)0x2fULL << 64) |
-                                ((__uint128_t)0xe9ULL << 56) | ((__uint128_t)0xb5ULL << 48) |
-                                ((__uint128_t)0xdbULL << 40) | ((__uint128_t)0xa5ULL << 32) |
-                                ((__uint128_t)0x81ULL << 24) | ((__uint128_t)0x89ULL << 16) |
-                                ((__uint128_t)0xdbULL << 8) | 0xbcULL;
-
-__uint128_t K[2] = {0, 0};
-
-__uint128_t lenAD;
-__uint128_t lenM;
-__uint128_t S[7]; // state array
-__uint128_t N;    // 12 octets to 16 octets(since its always padded to 128 bits before use stored it as 128bit value)
-
-__uint128_t AD[64]; // max length = 2^62 octets = 2^61 * 8 bits = 2^57 elements.
-__uint128_t Size_AD;
-__uint128_t M[256]; // max length = 2^125 octets = 2^125 * 8 bits = 2^121 elements.
-__uint128_t Size_M;
-__uint128_t C[256];
-__uint128_t T[2];
+#include "Rocca_S.h";
 
 string uint128_to_hex(__uint128_t value)
 {
@@ -81,6 +26,38 @@ unsigned char hexCharToValue(char c)
     if (c >= 'A' && c <= 'F')
         return c - 'A' + 10;
     throw std::invalid_argument("Invalid hex character");
+}
+
+__uint128_t charArray_to_uint128(uint8_t *array) // working
+{
+    __uint128_t result = 0;
+    for (int i = 0; i < 16; i++)
+    {
+        result = (result << 8) | array[i];
+    }
+
+    return result;
+}
+
+void uint128_to_charArray(__uint128_t value, uint8_t *array) // working
+{
+    for (int i = 15; i >= 0; i--)
+    {
+        array[i] = (uint8_t)(value & 0xFF);
+        value >>= 8;
+    }
+}
+
+__uint128_t LE128(__uint128_t num)
+{
+    __uint128_t out = 0;
+    for (int i = 0; i < 16; i++)
+    {
+        out = out << 8;
+        out = out | (num & 0xFF);
+        num = num >> 8;
+    }
+    return out;
 }
 
 int PAD(string inp, __uint128_t *Array)
@@ -246,25 +223,6 @@ void mixColumns(unsigned char *state)
         }
     }
 }
-void uint128_to_charArray(__uint128_t value, uint8_t *array) // working
-{
-    for (int i = 15; i >= 0; i--)
-    {
-        array[i] = (uint8_t)(value & 0xFF);
-        value >>= 8;
-    }
-}
-
-__uint128_t charArray_to_uint128(uint8_t *array) // working
-{
-    __uint128_t result = 0;
-    for (int i = 0; i < 16; i++)
-    {
-        result = (result << 8) | array[i];
-    }
-
-    return result;
-}
 
 void aes_round(unsigned char *state, unsigned char *roundKey)
 {
@@ -353,18 +311,6 @@ void Rocca_S_encrypt(__uint128_t *M)
     }
 }
 
-__uint128_t LE128(__uint128_t num)
-{
-    __uint128_t out = 0;
-    for (int i = 0; i < 16; i++)
-    {
-        out = out << 8;
-        out = out | (num & 0xFF);
-        num = num >> 8;
-    }
-    return out;
-}
-
 void finalize()
 {
     for (int i = 0; i < 16; i++)
@@ -376,61 +322,164 @@ void finalize()
     T[1] = ((S[4] ^ S[5]) ^ S[6]);
 }
 
-int main()
+uint8_t hex_to_uint8(string str)
 {
-    for (int i = 1; i <= 7; i++)
+    uint8_t value = static_cast<uint8_t>(std::stoi(hexStr, nullptr, 16));
+    return value;
+}
+
+string uint8_to_hex(uint8_t value){
+    stringstream ss;
+    ss << hex << setw(2) << setfill('0') << static_cast<int>(value);
+
+    string hexStr = ss.str();
+    return hexStr;
+}
+
+
+void Rocca_S_hw(hls::stream<axis_data> &input, hls::stream<axis_data> &output)
+{
+#pragma HLS INTERFACE axis register both port = output
+#pragma HLS INTERFACE axis register both port = intput
+#pragma HLS INTERFACE ap_ctrl_none port = return
+
+    int N_len;
+    __uint128_t M_len, AD_len;
+
+    __uint128_t Size_AD; // array size
+    __uint128_t Size_M;  // array size
+
+    __uint128_t S[7]; // state array
+
+    __uint128_t K[2];
+    __uint128_t N;      // 12 octets to 16 octets(since its always padded to 128 bits before use stored it as 128bit value)
+    __uint128_t AD[64]; // max length = 2^62 octets = 2^61 * 8 bits = 2^57 elements.
+    __uint128_t M[256]; // max length = 2^125 octets = 2^125 * 8 bits = 2^121 elements.
+
+    __uint128_t C[256];
+    __uint128_t T[2];
+
+    string K_string, N_string, M_string, AD_string;
+
+    axis_data local_stream;
+
+    local_stream = input.read();
+    N_len = local_stream.data;
+
+    uint8_t temp = 0;
+
+    // get AD length
+    for (int i = 0; i < 128 / 8; i++)
     {
-        string s = "test_vector_" + to_string(i) + "_";
-
-        string K_string = testVectors[s + "key"];
-        string N_string = testVectors[s + "nonce"];
-        string M_string = testVectors[s + "plaintext"];
-        string AD_string = testVectors[s + "associated_data"];
-        string C_string = testVectors[s + "ciphertext"];
-        string T_string = testVectors[s + "tag"];
-
-        lenAD = AD_string.length() * 4;
-        lenM = M_string.length() * 4;
-
-        PAD(K_string, K);
-
-        N = PADN(N_string);
-
-        Size_AD = PAD(AD_string, AD);
-        Size_M = PAD(M_string, M);
-
-        initialize();
-
-        proccessAD(AD);
-
-        Rocca_S_encrypt(M);
-
-        finalize();
-
-        string cipher_output = "";
-        string tag_output = "";
-        for (int i = 0; i < Size_M; i++)
-        {
-            cipher_output += uint128_to_hex(C[i]);
-        }
-
-        for (int i = 0; i < 2; i++)
-        {
-            tag_output += uint128_to_hex(T[i]);
-        }
-
-        if (cipher_output.substr(0, lenM / 4) != C_string)
-        {
-            cout << "ERROR: Cipher text doesn't match in test_vector " << i << endl;
-            return 1;
-        }
-        if (tag_output != T_string)
-        {
-            cout << "ERROR: Tag doesn't match in test_vector " << i << endl;
-            return 1;
-        }
+        local_stream = input.read();
+        temp = local_stream.data;
+        AD_len = (AD_len << 8) || temp;
     }
-    cout << "****************************************\n\n";
-    cout << "All tests passed successfully\n\n";
-    cout << "****************************************";
+
+    // get message length
+    for (int i = 0; i < 128 / 8; i++)
+    {
+        local_stream = input.read();
+        temp = local_stream.data;
+        M_len = (M_len << 8) || temp;
+    }
+
+    // get key
+    for (int i = 0; i < 256 / 8; i++)
+    {
+        local_stream = input.read();
+        temp = local_stream.data;
+        string hexval = uint8_to_hex(temp);
+        K_string += hexval;
+    }
+
+    // get nonce
+    for (int i = 0; i < N_len / 8; i++)
+    {
+        local_stream = input.read();
+        temp = local_stream.data;
+        string hexval = uint8_to_hex(temp);
+        N_string += hexval;
+    }
+
+    // get associated data
+    for (__uint128_t i = 0; i < AD_len / 8; i++)
+    {
+        local_stream = input.read();
+        temp = local_stream.data;
+        string hexval = uint8_to_hex(temp);
+        AD_string += hexval;
+    }
+
+    // get plaintext
+    for (__uint128_t i = 0; i < M_len / 8; i++)
+    {
+        local_stream = input.read();
+        temp = local_stream.data;
+        string hexval = uint8_to_hex(temp);
+        M_string += hexval;
+    }
+
+    PAD(K_string, K);
+
+    N = PADN(N_string);
+
+    Size_AD = PAD(AD_string, AD);
+    Size_M = PAD(M_string, M);
+
+    initialize();
+
+    proccessAD(AD);
+
+    Rocca_S_encrypt(M);
+
+    finalize();
+
+    string cipher_output = "";
+    string tag_output = "";
+
+    for (int i = 0; i < Size_M; i++)
+    {
+        cipher_output += uint128_to_hex(C[i]);
+    }
+
+    cipher_output = cipher_output.substr(0, M_len / 4);
+
+    for (int i = 0; i < 2; i++)
+    {
+        tag_output += uint128_to_hex(T[i]);
+    }
+
+    for (int i = 0; i < M_len / 4; i += 2)
+    {
+        string temp = cipher_output.substr(i * 2, 2);
+        uint8_t val = hex_to_uint8(temp);
+        local_stream.data = val;
+        if (i == M_len / 8 - 2)
+        {
+            local_stream.last = 1;
+        }
+        else
+        {
+            local_stream.last = 0;
+        }
+        output.write(local_stream);
+    }
+
+    for (int i = 0; i < 256 / 4; i += 2)
+    {
+        string temp = tag_output.substr(i * 2, 2);
+        uint8_t val = hex_to_uint8(temp);
+        local_stream.data = val;
+        if (i == 128 / 8 - 2)
+        {
+            local_stream.last = 1;
+        }
+        else
+        {
+            local_stream.last = 0;
+        }
+        output.write(local_stream);
+    }
+    return;
 }

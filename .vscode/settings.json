@@ -3,6 +3,7 @@
         "iostream": "cpp",
         "ostream": "cpp",
         "compare": "cpp",
-        "functional": "cpp"
+        "functional": "cpp",
+        "sstream": "cpp"
     }
 }
