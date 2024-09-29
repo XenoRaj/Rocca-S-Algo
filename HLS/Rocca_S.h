@@ -4,14 +4,14 @@
 #include <iostream>
 #include <iomanip>
 #include <sstream>
-#include <hls_stream.h>
-#include <ap_int.h>
+// #include <hls_stream.h>
+// #include <ap_int.h>
 
-struct axis_data
-{
-    uint8_t data;
-    ap_uint<1> last;
-};
+// struct axis_data
+// {
+//     uint8_t data;s
+//     ap_uint<1> last;
+// };
 
 using namespace std;
 using TestVectorDict = std::map<std::string, std::string>;
@@ -57,4 +57,4 @@ const uint8_t sboxhw[256] = {
 
 pair<string, string> Rocca_S_sw(string K_string, string N_string, string AD_string, string M_string);
 
-void Rocca_S_hw(hls::stream<axis_data> &input, hls::stream<axis_data> &output);
+// void Rocca_S_hw(hls::stream<axis_data> &input, hls::stream<axis_data> &output);

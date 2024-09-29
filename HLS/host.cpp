@@ -1,4 +1,3 @@
-#include "Rocca_S.h"
 
 __uint128_t lenAD;
 __uint128_t lenM;

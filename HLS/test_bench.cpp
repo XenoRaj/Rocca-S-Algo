@@ -52,7 +52,7 @@ TestVectorDict testVectors = {
 
 uint8_t hex_to_uint8(string str)
 {
-    uint8_t value = static_cast<uint8_t>(std::stoi(hexStr, nullptr, 16));
+    uint8_t value = static_cast<uint8_t>(std::stoi(str, nullptr, 16));
     return value;
 }
 

@@ -1,32 +1,3 @@
-#include "Rocca_S.h";
-
-string uint128_to_hex(__uint128_t value)
-{
-    ostringstream oss;
-
-    // Split the 128-bit value into two 64-bit parts
-    uint64_t high = static_cast<uint64_t>(value >> 64); // Higher 64 bits
-    uint64_t low = static_cast<uint64_t>(value);        // Lower 64 bits
-
-    // Print the higher part with leading zeros (even if it's zero)
-    oss << hex << setw(16) << setfill('0') << high;
-
-    // Print the lower part, also with leading zeros
-    oss << hex << setw(16) << setfill('0') << low;
-
-    return oss.str();
-}
-
-unsigned char hexCharToValue(char c)
-{
-    if (c >= '0' && c <= '9')
-        return c - '0';
-    if (c >= 'a' && c <= 'f')
-        return c - 'a' + 10;
-    if (c >= 'A' && c <= 'F')
-        return c - 'A' + 10;
-    throw std::invalid_argument("Invalid hex character");
-}
 
 __uint128_t charArray_to_uint128(uint8_t *array) // working
 {
@@ -60,54 +31,6 @@ __uint128_t LE128(__uint128_t num)
     return out;
 }
 
-int PAD(string inp, __uint128_t *Array)
-{
-    __uint128_t len = inp.length();
-    int rem = (64 - len % 64) % 64; // using 64 instead of 256 as hex values are used
-
-    for (int i = 0; i < rem; i++)
-    {
-        inp = inp + "0";
-    }
-
-    __uint128_t Array_size = (inp.length()) / 32;
-
-    for (__uint128_t i = 0; i < Array_size; i = i + 1)
-    {
-        __uint128_t temp = 0;
-        string substring = inp.substr(i * 32, 32);
-        for (int j = 0; j < 32; j++)
-        {
-            unsigned char val = hexCharToValue(substring[j]);
-            temp = (temp << 4) | val;
-        }
-        Array[i] = temp;
-    }
-
-    return Array_size;
-}
-
-__uint128_t PADN(string inp)
-{
-    __uint128_t len = inp.length();
-    int rem = (32 - len % 32) % 32;
-
-    for (int i = 0; i < rem; i++)
-    {
-        inp = inp + "0";
-    }
-
-    __uint128_t temp = 0;
-    string substring = inp;
-    for (int i = 0; i < 32; i++)
-    {
-        unsigned char val = hexCharToValue(substring[i]);
-
-        temp = (temp << 4) | val;
-    }
-
-    return temp;
-}
 
 void subBytes(unsigned char *state)
 {
@@ -322,21 +245,6 @@ void finalize()
     T[1] = ((S[4] ^ S[5]) ^ S[6]);
 }
 
-uint8_t hex_to_uint8(string str)
-{
-    uint8_t value = static_cast<uint8_t>(std::stoi(hexStr, nullptr, 16));
-    return value;
-}
-
-string uint8_to_hex(uint8_t value){
-    stringstream ss;
-    ss << hex << setw(2) << setfill('0') << static_cast<int>(value);
-
-    string hexStr = ss.str();
-    return hexStr;
-}
-
-
 void Rocca_S_hw(hls::stream<axis_data> &input, hls::stream<axis_data> &output)
 {
 #pragma HLS INTERFACE axis register both port = output
@@ -356,10 +264,10 @@ void Rocca_S_hw(hls::stream<axis_data> &input, hls::stream<axis_data> &output)
     __uint128_t AD[64]; // max length = 2^62 octets = 2^61 * 8 bits = 2^57 elements.
     __uint128_t M[256]; // max length = 2^125 octets = 2^125 * 8 bits = 2^121 elements.
 
+    
     __uint128_t C[256];
     __uint128_t T[2];
 
-    string K_string, N_string, M_string, AD_string;
 
     axis_data local_stream;
 
@@ -373,7 +281,7 @@ void Rocca_S_hw(hls::stream<axis_data> &input, hls::stream<axis_data> &output)
     {
         local_stream = input.read();
         temp = local_stream.data;
-        AD_len = (AD_len << 8) || temp;
+        AD_len = (AD_len << 8) | temp;
     }
 
     // get message length
@@ -381,52 +289,69 @@ void Rocca_S_hw(hls::stream<axis_data> &input, hls::stream<axis_data> &output)
     {
         local_stream = input.read();
         temp = local_stream.data;
-        M_len = (M_len << 8) || temp;
+        M_len = (M_len << 8) | temp;
     }
 
     // get key
     for (int i = 0; i < 256 / 8; i++)
     {
-        local_stream = input.read();
-        temp = local_stream.data;
-        string hexval = uint8_to_hex(temp);
-        K_string += hexval;
+        if(i < 256/4){
+            local_stream = input.read();
+            temp = local_stream.data;
+            K[0] = (K[0] << 8) | temp;
+        }
+        else{
+            local_stream = input.read();
+            temp = local_stream.data;
+            K[0] = (K[0] << 8) | temp;
+        }
     }
 
     // get nonce
-    for (int i = 0; i < N_len / 8; i++)
+    for (int i = 0; i < 128 / 8; i++)
     {
-        local_stream = input.read();
-        temp = local_stream.data;
-        string hexval = uint8_to_hex(temp);
-        N_string += hexval;
+        if(i < N_len/8 ){
+            local_stream = input.read();
+            temp = local_stream.data;
+            N = (N << 8) | temp;
+        }
+        
+        else{
+            N = (N << 8);
+        }
     }
 
     // get associated data
-    for (__uint128_t i = 0; i < AD_len / 8; i++)
+    Size_AD = AD_len + (256-AD_len%256)%256;
+
+    for (__uint128_t i = 0; i < Size_AD / 8; i++)
     {
-        local_stream = input.read();
-        temp = local_stream.data;
-        string hexval = uint8_to_hex(temp);
-        AD_string += hexval;
+        if(i < AD_len/8){
+            local_stream = input.read();
+            temp = local_stream.data;
+            AD[i/16] = (AD[i/16]<<8) | temp;
+        }
+        else{
+            AD[i/16] = (AD<<8)
+        }
     }
+    Size_AD = Size_AD/128;
 
     // get plaintext
-    for (__uint128_t i = 0; i < M_len / 8; i++)
+    Size_M = M_len + (256-M_len%256)%256;
+    for (__uint128_t i = 0; i < Size_M / 8; i++)
     {
-        local_stream = input.read();
-        temp = local_stream.data;
-        string hexval = uint8_to_hex(temp);
-        M_string += hexval;
+        if(i < M_len/8){
+            local_stream = input.read();
+            temp = local_stream.data;
+            M[i/16] = (M[i/16]<<8) | temp;
+        }
+        else{
+            M[i/16] = (M[i/16]<<8);   
+        }
     }
-
-    PAD(K_string, K);
-
-    N = PADN(N_string);
-
-    Size_AD = PAD(AD_string, AD);
-    Size_M = PAD(M_string, M);
-
+    Size_M = Size_M/128;
+ 
     initialize();
 
     proccessAD(AD);
@@ -435,27 +360,13 @@ void Rocca_S_hw(hls::stream<axis_data> &input, hls::stream<axis_data> &output)
 
     finalize();
 
-    string cipher_output = "";
-    string tag_output = "";
 
-    for (int i = 0; i < Size_M; i++)
+    for (int i = 0; i < M_len / 8;i++)
     {
-        cipher_output += uint128_to_hex(C[i]);
-    }
-
-    cipher_output = cipher_output.substr(0, M_len / 4);
-
-    for (int i = 0; i < 2; i++)
-    {
-        tag_output += uint128_to_hex(T[i]);
-    }
-
-    for (int i = 0; i < M_len / 4; i += 2)
-    {
-        string temp = cipher_output.substr(i * 2, 2);
-        uint8_t val = hex_to_uint8(temp);
+        
+        uint8_t val = (M[i/16]>>(120-(i%16)*8) & 0xFF);
         local_stream.data = val;
-        if (i == M_len / 8 - 2)
+        if (i == M_len / 8 - 1)
         {
             local_stream.last = 1;
         }
@@ -466,12 +377,12 @@ void Rocca_S_hw(hls::stream<axis_data> &input, hls::stream<axis_data> &output)
         output.write(local_stream);
     }
 
-    for (int i = 0; i < 256 / 4; i += 2)
+    for (int i = 0; i < 256 / 8; i++)
     {
-        string temp = tag_output.substr(i * 2, 2);
-        uint8_t val = hex_to_uint8(temp);
+        
+        uint8_t val = (T[i/16]>>(120-(i%16)*8) & 0xFF);
         local_stream.data = val;
-        if (i == 128 / 8 - 2)
+        if (i == 256/ 8 - 1)
         {
             local_stream.last = 1;
         }
