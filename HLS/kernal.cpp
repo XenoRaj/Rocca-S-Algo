@@ -1,12 +1,13 @@
 #include <cstdint>
-// #include <hls_stream.h>
-// #include <ap_int.h>
+#include <hls_stream.h>
+#include <ap_int.h>
 
 struct axis_data
 {
     uint8_t data;
     ap_uint<1> last;
 };
+
 static const __uint128_t Z0 = ((__uint128_t)0xcdULL << 120) | ((__uint128_t)0x65ULL << 112) |
                               ((__uint128_t)0xefULL << 104) | ((__uint128_t)0x23ULL << 96) |
                               ((__uint128_t)0x91ULL << 88) | ((__uint128_t)0x44ULL << 80) |
