@@ -9,7 +9,7 @@
 
 // struct axis_data
 // {
-//     uint8_t data;s
+//     uint8_t data;
 //     ap_uint<1> last;
 // };
 

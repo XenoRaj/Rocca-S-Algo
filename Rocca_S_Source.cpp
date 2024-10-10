@@ -3,6 +3,7 @@
 #include <iomanip>
 #include <sstream>
 #include "Rocca_S.h"
+
 using namespace std;
 
 static const __uint128_t Z0 = ((__uint128_t)0xcdULL << 120) | ((__uint128_t)0x65ULL << 112) |
